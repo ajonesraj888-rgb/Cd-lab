@@ -1,0 +1,178 @@
+/*
+# Lab 12: Implementation of a Simple Code Generator
+
+## Aim
+To implement a Simple Code Generator that converts an intermediate representation (Three Address Code) into pseudo assembly code.
+
+## Introduction
+The code generator is the final phase of a compiler. It takes an intermediate representation (like TAC) as input and produces equivalent target machine instructions (or assembly language). In this lab, we generate generic pseudo assembly instructions using basic registers and operators.
+
+## Algorithm
+1. Convert the input arithmetic assignment into Three Address Code (TAC).
+2. For each line of TAC:
+   - If it's an operation (e.g., `t1 = op1 + op2`):
+     - Move `op1` into a register (`MOV R0, op1`).
+     - Perform the arithmetic operation with `op2` on the register (e.g., `ADD R0, op2`).
+     - Move the result from the register to the target variable (`MOV t1, R0`).
+   - If it's a simple assignment (e.g., `A = t2`):
+     - Move the value into the target variable (`MOV A, t2`).
+3. Print the generated Three Address Code and the Pseudo Assembly Code.
+
+## Language Used
+C++
+
+## Tools Used
+- VS Code
+- GCC Compiler
+- Git & GitHub
+
+## Sample Output
+```
+Input Expression: A = B + C * D
+
+Three Address Code (TAC):
+t1 = C * D
+t2 = B + t1
+A = t2
+
+Pseudo Assembly Code:
+MOV R0, C
+MUL R0, D
+MOV t1, R0
+MOV R0, B
+ADD R0, t1
+MOV t2, R0
+MOV A, t2
+```
+
+## Result
+Hence, the simple code generator for converting intermediate code to pseudo assembly code was implemented successfully.
+*/
+
+#include <iostream>
+#include <vector>
+#include <string>
+#include <stack>
+#include <sstream>
+#include <cctype>
+
+using namespace std;
+
+int temp_count = 1;
+
+string new_temp() {
+    return "t" + to_string(temp_count++);
+}
+
+int get_precedence(string op) {
+    if (op == "+" || op == "-") return 1;
+    if (op == "*" || op == "/") return 2;
+    return 0;
+}
+
+vector<string> infix_to_postfix(const vector<string>& tokens) {
+    stack<string> s;
+    vector<string> postfix;
+    for (const string& token : tokens) {
+        if (isalnum(token[0])) {
+            postfix.push_back(token);
+        } else if (token == "(") {
+            s.push(token);
+        } else if (token == ")") {
+            while (!s.empty() && s.top() != "(") {
+                postfix.push_back(s.top());
+                s.pop();
+            }
+            if (!s.empty()) s.pop();
+        } else {
+            while (!s.empty() && s.top() != "(" && get_precedence(s.top()) >= get_precedence(token)) {
+                postfix.push_back(s.top());
+                s.pop();
+            }
+            s.push(token);
+        }
+    }
+    while (!s.empty()) {
+        postfix.push_back(s.top());
+        s.pop();
+    }
+    return postfix;
+}
+
+vector<string> generate_TAC(const string& expression) {
+    vector<string> tokens;
+    stringstream ss(expression);
+    string token;
+    while (ss >> token) tokens.push_back(token);
+
+    string lhs = tokens[0];
+    vector<string> rhs(tokens.begin() + 2, tokens.end());
+    vector<string> postfix = infix_to_postfix(rhs);
+    
+    stack<string> eval_stack;
+    vector<string> tac;
+
+    for (const string& t : postfix) {
+        if (isalnum(t[0])) {
+            eval_stack.push(t);
+        } else {
+            string op2 = eval_stack.top(); eval_stack.pop();
+            string op1 = eval_stack.top(); eval_stack.pop();
+            string temp = new_temp();
+            tac.push_back(temp + " = " + op1 + " " + t + " " + op2);
+            eval_stack.push(temp);
+        }
+    }
+
+    string final_result = eval_stack.top(); eval_stack.pop();
+    tac.push_back(lhs + " = " + final_result);
+
+    return tac;
+}
+
+vector<string> generate_assembly(const vector<string>& tac) {
+    vector<string> assembly;
+    for (const string& line : tac) {
+        vector<string> parts;
+        stringstream ss(line);
+        string part;
+        while (ss >> part) parts.push_back(part);
+
+        if (parts.size() == 5) {
+            string result = parts[0];
+            string op1 = parts[2];
+            string op = parts[3];
+            string op2 = parts[4];
+
+            assembly.push_back("MOV R0, " + op1);
+            if (op == "+") assembly.push_back("ADD R0, " + op2);
+            else if (op == "-") assembly.push_back("SUB R0, " + op2);
+            else if (op == "*") assembly.push_back("MUL R0, " + op2);
+            else if (op == "/") assembly.push_back("DIV R0, " + op2);
+            assembly.push_back("MOV " + result + ", R0");
+        } else if (parts.size() == 3) {
+            string result = parts[0];
+            string val = parts[2];
+            assembly.push_back("MOV " + result + ", " + val);
+        }
+    }
+    return assembly;
+}
+
+int main() {
+    string expr = "A = B + C * D";
+    cout << "Input Expression: " << expr << "\n\n";
+
+    vector<string> tac = generate_TAC(expr);
+    cout << "Three Address Code (TAC):\n";
+    for (const string& line : tac) {
+        cout << line << "\n";
+    }
+
+    vector<string> assembly = generate_assembly(tac);
+    cout << "\nPseudo Assembly Code:\n";
+    for (const string& line : assembly) {
+        cout << line << "\n";
+    }
+
+    return 0;
