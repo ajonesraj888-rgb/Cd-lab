@@ -1,0 +1,1 @@
+C++ implementations of core Compiler Design laboratory experiments including Lexical Analyzer, Regex to NFA, NFA to DFA conversion, Left Recursion Elimination, FIRST & FOLLOW computation, and Predictive Parsing Table generation.
